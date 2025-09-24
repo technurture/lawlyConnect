@@ -68,16 +68,23 @@ export class DatabaseStorage implements IStorage {
     connectDB().catch(console.error);
   }
 
-  // Helper method to validate ObjectId
-  private isValidObjectId(id: string): boolean {
-    return Types.ObjectId.isValid(id);
+  // Helper method to validate string ID (since we use Replit user IDs)
+  private isValidStringId(id: string): boolean {
+    return typeof id === 'string' && id.length > 0;
   }
 
   // User methods
   async getUser(id: string): Promise<IUser | undefined> {
     try {
-      if (!this.isValidObjectId(id)) return undefined;
+      console.log('Getting user with ID:', id);
+      
+      if (!this.isValidStringId(id)) {
+        console.log('Invalid string ID:', id);
+        return undefined;
+      }
+      
       const user = await User.findById(id);
+      console.log('User found:', user ? user._id : 'not found');
       return user || undefined;
     } catch (error) {
       console.error('Error getting user:', error);
@@ -108,6 +115,8 @@ export class DatabaseStorage implements IStorage {
 
   async upsertUser(userData: UpsertUser): Promise<IUser> {
     try {
+      console.log('Upserting user with data:', JSON.stringify(userData, null, 2));
+      
       // Use MongoDB's findOneAndUpdate with upsert option
       const user = await User.findOneAndUpdate(
         { 
@@ -116,14 +125,28 @@ export class DatabaseStorage implements IStorage {
             { email: userData.email }
           ]
         },
-        userData,
+        {
+          $set: {
+            _id: userData.id, // Ensure we set the Replit user ID as our _id
+            email: userData.email,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            profileImageUrl: userData.profileImageUrl,
+            userType: userData.userType,
+            updatedAt: new Date()
+          },
+          $setOnInsert: {
+            createdAt: new Date()
+          }
+        },
         { 
           new: true, 
           upsert: true,
-          setDefaultsOnInsert: true
+          runValidators: true
         }
       );
       
+      console.log('User upserted successfully:', user._id);
       return user;
     } catch (error) {
       console.error('Error upserting user:', error);

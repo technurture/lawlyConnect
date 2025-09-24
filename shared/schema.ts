@@ -48,6 +48,7 @@ export const Session = mongoose.model('Session', SessionSchema);
 
 // User Schema
 const UserSchema = new Schema({
+  _id: { type: String, required: true }, // Use Replit user ID as string
   email: { type: String, unique: true, sparse: true },
   firstName: String,
   lastName: String,
@@ -63,14 +64,15 @@ const UserSchema = new Schema({
   paystackCustomerId: String,
   paystackCustomerCode: String,
 }, {
-  timestamps: true
+  timestamps: true,
+  _id: false // Disable automatic ObjectId generation
 });
 
 export const User = mongoose.model('User', UserSchema);
 
 // Lawyer Profile Schema
 const LawyerProfileSchema = new Schema({
-  userId: { type: Types.ObjectId, ref: 'User', required: true },
+  userId: { type: String, ref: 'User', required: true },
   barNumber: { type: String, required: true },
   yearsOfExperience: { type: Number, required: true },
   specializations: [{ type: String, required: true }],

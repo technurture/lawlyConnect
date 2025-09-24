@@ -67,14 +67,20 @@ async function upsertUser(
   // Get the user type from query params or default to client
   const roleToAssign = userType === 'lawyer' ? 'lawyer' : 'client';
   
-  await storage.upsertUser({
-    id: claims["sub"],
-    email: claims["email"],
-    firstName: claims["first_name"],
-    lastName: claims["last_name"],
-    profileImageUrl: claims["profile_image_url"],
-    userType: roleToAssign,
-  });
+  try {
+    await storage.upsertUser({
+      id: claims["sub"],
+      email: claims["email"],
+      firstName: claims["first_name"],
+      lastName: claims["last_name"],
+      profileImageUrl: claims["profile_image_url"],
+      userType: roleToAssign,
+    });
+    console.log(`User ${claims["email"]} upserted successfully with role: ${roleToAssign}`);
+  } catch (error) {
+    console.error("Error upserting user in replitAuth:", error);
+    throw error;
+  }
 }
 
 export async function setupAuth(app: Express) {
