@@ -38,16 +38,17 @@ export default function ClientSignupForm() {
 
   const handleSubmit = async (data: ClientSignupData) => {
     try {
+      // Remove confirmPassword before sending to backend
+      const { confirmPassword, ...submitData } = data;
+      
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...data,
-          userType: 'client',
-          // Remove confirmPassword before sending to backend
-          confirmPassword: undefined
+          ...submitData,
+          userType: 'client'
         }),
       });
 
