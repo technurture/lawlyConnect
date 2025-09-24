@@ -29,7 +29,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const tokenPayload: Omit<JWTPayload, 'iat' | 'exp'> = {
-        userId: user._id.toString(),
+        userId: user._id,
         email: user.email,
         userType: user.userType as 'client' | 'lawyer' | 'admin',
         firstName: user.firstName || undefined,
@@ -79,7 +79,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const newTokenPayload: Omit<JWTPayload, 'iat' | 'exp'> = {
-        userId: user._id.toString(),
+        userId: user._id,
         email: user.email,
         userType: user.userType as 'client' | 'lawyer' | 'admin',
         firstName: user.firstName || undefined,
