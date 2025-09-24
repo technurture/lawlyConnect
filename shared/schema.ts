@@ -99,8 +99,8 @@ export const LawyerProfile = mongoose.model('LawyerProfile', LawyerProfileSchema
 
 // Case Schema
 const CaseSchema = new Schema({
-  clientId: { type: Types.ObjectId, ref: 'User', required: true },
-  lawyerId: { type: Types.ObjectId, ref: 'User' },
+  clientId: { type: String, ref: 'User', required: true },
+  lawyerId: { type: String, ref: 'User' },
   title: { type: String, required: true },
   description: { type: String, required: true },
   category: { type: String, required: true }, // AI categorized
@@ -125,7 +125,7 @@ export const Case = mongoose.model('Case', CaseSchema);
 // Message Schema
 const MessageSchema = new Schema({
   caseId: { type: Types.ObjectId, ref: 'Case', required: true },
-  senderId: { type: Types.ObjectId, ref: 'User', required: true },
+  senderId: { type: String, ref: 'User', required: true },
   messageType: {
     type: String,
     enum: Object.values(MessageType),
@@ -145,8 +145,8 @@ export const Message = mongoose.model('Message', MessageSchema);
 // Payment Schema
 const PaymentSchema = new Schema({
   caseId: { type: Types.ObjectId, ref: 'Case', required: true },
-  clientId: { type: Types.ObjectId, ref: 'User', required: true },
-  lawyerId: { type: Types.ObjectId, ref: 'User', required: true },
+  clientId: { type: String, ref: 'User', required: true },
+  lawyerId: { type: String, ref: 'User', required: true },
   amount: { type: Number, required: true, get: (v: number) => parseFloat(v?.toFixed(2)) },
   platformFee: { type: Number, required: true, get: (v: number) => parseFloat(v?.toFixed(2)) },
   lawyerAmount: { type: Number, required: true, get: (v: number) => parseFloat(v?.toFixed(2)) },
@@ -169,8 +169,8 @@ export const Payment = mongoose.model('Payment', PaymentSchema);
 // Review Schema
 const ReviewSchema = new Schema({
   caseId: { type: Types.ObjectId, ref: 'Case', required: true },
-  clientId: { type: Types.ObjectId, ref: 'User', required: true },
-  lawyerId: { type: Types.ObjectId, ref: 'User', required: true },
+  clientId: { type: String, ref: 'User', required: true },
+  lawyerId: { type: String, ref: 'User', required: true },
   rating: { type: Number, required: true, min: 1, max: 5 },
   comment: String,
 }, {
@@ -264,7 +264,7 @@ export type InsertReview = z.infer<typeof insertReviewSchema>;
 
 // Document interfaces
 export interface IUser extends Document {
-  _id: Types.ObjectId;
+  _id: string;
   email?: string;
   firstName?: string;
   lastName?: string;
@@ -280,7 +280,7 @@ export interface IUser extends Document {
 
 export interface ILawyerProfile extends Document {
   _id: Types.ObjectId;
-  userId: Types.ObjectId;
+  userId: string;
   barNumber: string;
   yearsOfExperience: number;
   specializations: string[];
@@ -299,8 +299,8 @@ export interface ILawyerProfile extends Document {
 
 export interface ICase extends Document {
   _id: Types.ObjectId;
-  clientId: Types.ObjectId;
-  lawyerId?: Types.ObjectId;
+  clientId: string;
+  lawyerId?: string;
   title: string;
   description: string;
   category: string;
@@ -317,7 +317,7 @@ export interface ICase extends Document {
 export interface IMessage extends Document {
   _id: Types.ObjectId;
   caseId: Types.ObjectId;
-  senderId: Types.ObjectId;
+  senderId: string;
   messageType: 'text' | 'file' | 'system';
   content?: string;
   fileUrl?: string;
@@ -331,8 +331,8 @@ export interface IMessage extends Document {
 export interface IPayment extends Document {
   _id: Types.ObjectId;
   caseId: Types.ObjectId;
-  clientId: Types.ObjectId;
-  lawyerId: Types.ObjectId;
+  clientId: string;
+  lawyerId: string;
   amount: number;
   platformFee: number;
   lawyerAmount: number;
@@ -347,8 +347,8 @@ export interface IPayment extends Document {
 export interface IReview extends Document {
   _id: Types.ObjectId;
   caseId: Types.ObjectId;
-  clientId: Types.ObjectId;
-  lawyerId: Types.ObjectId;
+  clientId: string;
+  lawyerId: string;
   rating: number;
   comment?: string;
   createdAt: Date;
