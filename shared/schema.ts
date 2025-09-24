@@ -205,6 +205,16 @@ export const signupSchema = z.object({
   path: ["confirmPassword"],
 });
 
+// Backend signup schema (without confirmPassword)
+export const backendSignupSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  userType: z.enum(['client', 'lawyer']),
+  phone: z.string().optional(),
+});
+
 export const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(1, "Password is required"),

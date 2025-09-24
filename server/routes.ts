@@ -12,7 +12,7 @@ import {
   type JWTPayload 
 } from "./jwtAuth";
 import bcrypt from "bcrypt";
-import { signupSchema, loginSchema, insertLawyerProfileSchema } from "@shared/schema";
+import { signupSchema, backendSignupSchema, loginSchema, insertLawyerProfileSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware - Integration: javascript_log_in_with_replit
@@ -23,9 +23,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Signup endpoint
   app.post('/api/auth/signup', async (req, res) => {
     try {
-      const validationResult = signupSchema.safeParse(req.body);
+      const validationResult = backendSignupSchema.safeParse(req.body);
       
       if (!validationResult.success) {
+        console.log('SIGNUP VALIDATION ERROR:', JSON.stringify(validationResult.error.errors, null, 2));
         return res.status(400).json({ 
           message: "Invalid input data",
           errors: validationResult.error.errors

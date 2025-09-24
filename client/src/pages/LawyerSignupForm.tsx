@@ -19,7 +19,7 @@ const lawyerSignupSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   confirmPassword: z.string(),
-  phone: z.string().min(10, "Please enter a valid phone number"),
+  phone: z.string().optional(),
   barNumber: z.string().min(1, "NBA Bar Number is required"),
   yearsOfExperience: z.number().min(0, "Years of experience must be 0 or greater"),
   specializations: z.array(z.string()).min(1, "Please select at least one specialization"),
