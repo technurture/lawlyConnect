@@ -11,10 +11,147 @@ import {
   requireRole,
   type JWTPayload 
 } from "./jwtAuth";
+import bcrypt from "bcrypt";
+import { signupSchema, loginSchema, insertLawyerProfileSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware - Integration: javascript_log_in_with_replit
   await setupAuth(app);
+
+  // New Password-Based Authentication Routes
+  
+  // Signup endpoint
+  app.post('/api/auth/signup', async (req, res) => {
+    try {
+      const validationResult = signupSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          message: "Invalid input data",
+          errors: validationResult.error.errors
+        });
+      }
+
+      const { email, password, firstName, lastName, userType, phone } = validationResult.data;
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({ message: "User already exists with this email" });
+      }
+      
+      // Hash password
+      const saltRounds = 12;
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+      
+      // Create user
+      const newUser = await storage.createUser({
+        email,
+        password: hashedPassword,
+        firstName,
+        lastName,
+        userType: userType as 'client' | 'lawyer',
+        phone,
+        isVerified: false
+      });
+
+      // If lawyer, create lawyer profile
+      if (userType === 'lawyer') {
+        const lawyerData = req.body as any; // Cast to access lawyer-specific fields
+        await storage.createLawyerProfile({
+          userId: newUser._id.toString(),
+          barNumber: lawyerData.barNumber,
+          yearsOfExperience: lawyerData.yearsOfExperience,
+          specializations: lawyerData.specializations,
+          location: lawyerData.location,
+          bio: lawyerData.bio,
+          hourlyRate: lawyerData.hourlyRate,
+          consultationFee: lawyerData.consultationFee,
+          isAvailable: true
+        });
+      }
+      
+      // Generate JWT tokens
+      const tokenPayload: Omit<JWTPayload, 'iat' | 'exp'> = {
+        userId: newUser._id.toString(),
+        email: newUser.email,
+        userType: newUser.userType as 'client' | 'lawyer' | 'admin',
+        firstName: newUser.firstName,
+        lastName: newUser.lastName
+      };
+
+      const tokens = generateTokenPair(tokenPayload);
+      
+      res.status(201).json({
+        message: "Account created successfully",
+        ...tokens,
+        user: {
+          id: newUser._id,
+          email: newUser.email,
+          firstName: newUser.firstName,
+          lastName: newUser.lastName,
+          userType: newUser.userType
+        }
+      });
+    } catch (error) {
+      console.error("Error during signup:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Login endpoint
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const validationResult = loginSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          message: "Invalid input data",
+          errors: validationResult.error.errors
+        });
+      }
+
+      const { email, password } = validationResult.data;
+      
+      // Find user by email
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+      
+      // Verify password
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+      
+      // Generate JWT tokens
+      const tokenPayload: Omit<JWTPayload, 'iat' | 'exp'> = {
+        userId: user._id.toString(),
+        email: user.email,
+        userType: user.userType as 'client' | 'lawyer' | 'admin',
+        firstName: user.firstName,
+        lastName: user.lastName
+      };
+
+      const tokens = generateTokenPair(tokenPayload);
+      
+      res.json({
+        message: "Login successful",
+        ...tokens,
+        user: {
+          id: user._id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          userType: user.userType
+        }
+      });
+    } catch (error) {
+      console.error("Error during login:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
 
   // JWT Authentication Routes
   
@@ -29,7 +166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const tokenPayload: Omit<JWTPayload, 'iat' | 'exp'> = {
-        userId: user._id,
+        userId: user._id.toString(),
         email: user.email,
         userType: user.userType as 'client' | 'lawyer' | 'admin',
         firstName: user.firstName || undefined,
@@ -79,7 +216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const newTokenPayload: Omit<JWTPayload, 'iat' | 'exp'> = {
-        userId: user._id,
+        userId: user._id.toString(),
         email: user.email,
         userType: user.userType as 'client' | 'lawyer' | 'admin',
         firstName: user.firstName || undefined,

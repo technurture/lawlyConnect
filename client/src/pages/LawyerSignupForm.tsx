@@ -17,6 +17,8 @@ const lawyerSignupSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string(),
   phone: z.string().min(10, "Please enter a valid phone number"),
   barNumber: z.string().min(1, "NBA Bar Number is required"),
   yearsOfExperience: z.number().min(0, "Years of experience must be 0 or greater"),
@@ -25,6 +27,9 @@ const lawyerSignupSchema = z.object({
   bio: z.string().min(10, "Please provide a brief bio (minimum 10 characters)"),
   hourlyRate: z.number().min(1, "Hourly rate must be greater than 0").optional(),
   consultationFee: z.number().min(1, "Consultation fee must be greater than 0").optional(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 });
 
 type LawyerSignupData = z.infer<typeof lawyerSignupSchema>;
@@ -56,6 +61,8 @@ export default function LawyerSignupForm() {
       firstName: "",
       lastName: "",
       email: "",
+      password: "",
+      confirmPassword: "",
       phone: "",
       barNumber: "",
       yearsOfExperience: 0,
@@ -76,12 +83,35 @@ export default function LawyerSignupForm() {
     form.setValue('specializations', updated);
   };
 
-  const handleSubmit = (data: LawyerSignupData) => {
-    // Store form data in sessionStorage to use after authentication
-    sessionStorage.setItem('lawyerSignupData', JSON.stringify(data));
-    
-    // Proceed to Replit authentication
-    window.location.href = '/api/login?userType=lawyer';
+  const handleSubmit = async (data: LawyerSignupData) => {
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...data,
+          userType: 'lawyer',
+          // Remove confirmPassword before sending to backend
+          confirmPassword: undefined
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        // Store tokens for authenticated session
+        localStorage.setItem('accessToken', result.accessToken);
+        localStorage.setItem('refreshToken', result.refreshToken);
+        // Redirect to dashboard
+        window.location.href = '/dashboard';
+      } else {
+        const error = await response.json();
+        form.setError('email', { message: error.message || 'Signup failed' });
+      }
+    } catch (error) {
+      form.setError('email', { message: 'Network error. Please try again.' });
+    }
   };
 
   return (
@@ -147,19 +177,38 @@ export default function LawyerSignupForm() {
                     />
                   </div>
 
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email Address</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="email" 
+                            placeholder="john.doe@lawfirm.com" 
+                            {...field} 
+                            data-testid="input-email" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
-                      name="email"
+                      name="password"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Email Address</FormLabel>
+                          <FormLabel>Password</FormLabel>
                           <FormControl>
                             <Input 
-                              type="email" 
-                              placeholder="john.doe@lawfirm.com" 
+                              type="password" 
+                              placeholder="••••••••" 
                               {...field} 
-                              data-testid="input-email" 
+                              data-testid="input-password" 
                             />
                           </FormControl>
                           <FormMessage />
@@ -168,16 +217,16 @@ export default function LawyerSignupForm() {
                     />
                     <FormField
                       control={form.control}
-                      name="phone"
+                      name="confirmPassword"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Phone Number</FormLabel>
+                          <FormLabel>Confirm Password</FormLabel>
                           <FormControl>
                             <Input 
-                              type="tel" 
-                              placeholder="+234 800 123 4567" 
+                              type="password" 
+                              placeholder="••••••••" 
                               {...field} 
-                              data-testid="input-phone" 
+                              data-testid="input-confirm-password" 
                             />
                           </FormControl>
                           <FormMessage />
@@ -185,6 +234,25 @@ export default function LawyerSignupForm() {
                       )}
                     />
                   </div>
+
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="tel" 
+                            placeholder="+234 800 123 4567" 
+                            {...field} 
+                            data-testid="input-phone" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
 
                 {/* Professional Information */}
@@ -348,7 +416,7 @@ export default function LawyerSignupForm() {
                   className="w-full" 
                   data-testid="button-submit-lawyer-signup"
                 >
-                  Continue with Replit
+                  Create Account
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </form>

@@ -48,15 +48,16 @@ export const Session = mongoose.model('Session', SessionSchema);
 
 // User Schema
 const UserSchema = new Schema({
-  _id: { type: String, required: true }, // Use Replit user ID as string
-  email: { type: String, unique: true, sparse: true },
-  firstName: String,
-  lastName: String,
+  email: { type: String, unique: true, required: true },
+  password: { type: String, required: true },
+  firstName: { type: String, required: true },
+  lastName: { type: String, required: true },
   profileImageUrl: String,
   userType: {
     type: String,
     enum: Object.values(UserType),
-    default: UserType.CLIENT
+    default: UserType.CLIENT,
+    required: true
   },
   phone: String,
   isVerified: { type: Boolean, default: false },
@@ -64,8 +65,7 @@ const UserSchema = new Schema({
   paystackCustomerId: String,
   paystackCustomerCode: String,
 }, {
-  timestamps: true,
-  _id: false // Disable automatic ObjectId generation
+  timestamps: true
 });
 
 export const User = mongoose.model('User', UserSchema);
@@ -181,16 +181,36 @@ export const Review = mongoose.model('Review', ReviewSchema);
 
 // Zod validation schemas
 export const insertUserSchema = z.object({
-  email: z.string().email().optional(),
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
+  email: z.string().email(),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
   profileImageUrl: z.string().url().optional(),
   userType: z.enum(['client', 'lawyer', 'admin']).default('client'),
   phone: z.string().optional(),
   isVerified: z.boolean().default(false),
 });
 
-// UpsertUser schema for authentication
+// Authentication schemas
+export const signupSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string(),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  userType: z.enum(['client', 'lawyer']),
+  phone: z.string().optional(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+export const loginSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+// UpsertUser schema for authentication (legacy - can be removed after migration)
 export const upsertUserSchema = z.object({
   id: z.string().optional(),
   email: z.string().email().optional(),
@@ -264,10 +284,11 @@ export type InsertReview = z.infer<typeof insertReviewSchema>;
 
 // Document interfaces
 export interface IUser extends Document {
-  _id: string;
-  email?: string;
-  firstName?: string;
-  lastName?: string;
+  _id: Types.ObjectId;
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
   profileImageUrl?: string;
   userType: 'client' | 'lawyer' | 'admin';
   phone?: string;

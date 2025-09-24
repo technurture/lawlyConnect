@@ -13,7 +13,12 @@ const clientSignupSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string(),
   phone: z.string().min(10, "Please enter a valid phone number"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 });
 
 type ClientSignupData = z.infer<typeof clientSignupSchema>;
@@ -25,16 +30,41 @@ export default function ClientSignupForm() {
       firstName: "",
       lastName: "",
       email: "",
+      password: "",
+      confirmPassword: "",
       phone: "",
     },
   });
 
-  const handleSubmit = (data: ClientSignupData) => {
-    // Store form data in sessionStorage to use after authentication
-    sessionStorage.setItem('clientSignupData', JSON.stringify(data));
-    
-    // Proceed to Replit authentication
-    window.location.href = '/api/login?userType=client';
+  const handleSubmit = async (data: ClientSignupData) => {
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...data,
+          userType: 'client',
+          // Remove confirmPassword before sending to backend
+          confirmPassword: undefined
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        // Store tokens for authenticated session
+        localStorage.setItem('accessToken', result.accessToken);
+        localStorage.setItem('refreshToken', result.refreshToken);
+        // Redirect to dashboard
+        window.location.href = '/dashboard';
+      } else {
+        const error = await response.json();
+        form.setError('email', { message: error.message || 'Signup failed' });
+      }
+    } catch (error) {
+      form.setError('email', { message: 'Network error. Please try again.' });
+    }
   };
 
   return (
@@ -118,6 +148,44 @@ export default function ClientSignupForm() {
 
                 <FormField
                   control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="password" 
+                          placeholder="••••••••" 
+                          {...field} 
+                          data-testid="input-password" 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirm Password</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="password" 
+                          placeholder="••••••••" 
+                          {...field} 
+                          data-testid="input-confirm-password" 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
@@ -140,7 +208,7 @@ export default function ClientSignupForm() {
                   className="w-full" 
                   data-testid="button-submit-client-signup"
                 >
-                  Continue with Replit
+                  Create Account
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </form>
