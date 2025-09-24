@@ -1,0 +1,185 @@
+Perfect — let’s turn this into a **Product Requirements Document (PRD)** you can use directly with your dev team. I’ll keep it structured: vision, goals, features, requirements, architecture (with AWS in mind), compliance, and MVP milestones.
+
+---
+
+# 📄 Product Requirements Document (PRD)
+
+**Project:** AI-Powered Lawyer–User Marketplace (Nigeria)
+**Version:** 1.0
+**Owner:** \[Your Name / Startup Name]
+**Date:** \[Insert date]
+
+---
+
+## 1. Vision & Problem Statement
+
+Access to legal services in Nigeria is fragmented, expensive, and often opaque. Clients struggle to find verified lawyers, and lawyers lack a trusted digital marketplace to acquire clients and manage cases.
+This platform will:
+
+* Connect **verified Nigerian lawyers** with clients.
+* Use **AI assistants** to help users understand their issues, summarize documents, and draft initial materials.
+* Provide **lawyers with AI research and drafting tools**.
+* Ensure compliance with Nigerian Bar Association (NBA) and data protection rules.
+
+---
+
+## 2. Goals & Objectives
+
+1. **For Users (Clients):**
+
+   * Easily report a case, upload documents, and get matched with qualified lawyers.
+   * Receive AI-assisted summaries and draft documents (with lawyer review).
+   * Track case progress, communication, and payments securely.
+
+2. **For Lawyers:**
+
+   * Verified listing with specialization, location, and ratings.
+   * Matter management dashboard with secure client messaging.
+   * AI-assisted tools for drafting, research, and document summaries.
+
+3. **For Platform (Admin):**
+
+   * Robust lawyer verification (Supreme Court enrollment & NBA practicing certificate).
+   * Escrow-based payment system with commission/revenue tracking.
+   * Dispute resolution and quality control.
+
+---
+
+## 3. Key Features & Requirements
+
+### 3.1 User Features
+
+* Account creation (email/phone/SSO).
+* Guided case intake form + AI triage (case type, urgency).
+* Upload documents (PDF, DOCX, images → OCR).
+* Lawyer search/matching (specialty, location, price, rating).
+* Booking consultations (chat, video, in-person).
+* Escrow payment integration (Paystack/Flutterwave).
+* Notifications (SMS, email, in-app).
+
+### 3.2 Lawyer Features
+
+* Profile creation & verification (upload call-to-bar certificate, enrollment number, practicing certificate).
+* Dashboard for leads, messages, cases, invoices.
+* AI-assisted legal research (statutes, precedents, NBA guidelines).
+* Document drafting assistant (letters, contracts, pleadings).
+* Analytics (number of leads, conversion, revenue).
+
+### 3.3 Admin Features
+
+* Lawyer verification dashboard (manual + auto checks).
+* Manage disputes, refunds, and complaints.
+* Monitor escrow payments, commissions, and payouts.
+* Manage AI logs & compliance auditing.
+
+---
+
+## 4. AI/ML Components (AWS-native)
+
+### 4.1 Client Intake & Triage
+
+* **Service:** Amazon Bedrock (LLM) or OpenAI via API.
+* **Flow:** User fills intake → model classifies into categories (family, property, criminal, corporate, etc.) → generates structured case brief.
+
+### 4.2 Document Summarization & Drafting
+
+* **Service:** Amazon Textract for OCR → Amazon Bedrock/Anthropic Claude for summarization.
+* Drafting templates stored in DynamoDB or S3 → LLM tailors clauses.
+* Output always tagged as “AI draft – requires lawyer confirmation.”
+
+### 4.3 Legal Research Assistant
+
+* **Corpus:** Nigerian statutes, judgments, NBA guidelines (indexed in OpenSearch or Pinecone).
+* **Method:** Retrieval-Augmented Generation (RAG) pipeline: user query → semantic search → LLM with context → answer + citations.
+* **Service:** Amazon OpenSearch Service + Bedrock.
+
+### 4.4 AI Logging
+
+* Store all AI prompts/outputs in DynamoDB (audit trail for compliance).
+
+---
+
+## 5. Architecture (AWS Reference)
+
+**Frontend:** React (web), React Native (mobile).
+**Backend:** Node.js (NestJS) or Python (FastAPI). Hosted on AWS ECS (Fargate) or Lambda (serverless).
+**Database:** Amazon RDS (PostgreSQL) for structured data.
+**Vector DB:** OpenSearch w/ kNN plugin or Pinecone (external).
+**Storage:** Amazon S3 (encrypted) for documents.
+**AI/ML:** Amazon Bedrock for LLM + Amazon Textract for OCR.
+**Messaging:** Amazon SNS + SES (notifications).
+**Payments:** Paystack/Flutterwave API.
+**Auth:** Amazon Cognito (MFA, JWT).
+**Monitoring:** CloudWatch, AWS GuardDuty for security.
+
+---
+
+## 6. Compliance & Safeguards
+
+* **Lawyer Verification:** SCN + practicing certificate validation before profile goes live.
+* **NBA Rules Compliance:** Follow Rule 39 (advertising restrictions). Lawyer profiles must be factual, not promotional.
+* **AI Safeguards:**
+
+  * AI output disclaimers.
+  * Lawyer must approve all AI drafts before client delivery.
+  * RAG pipeline ensures citations, reduces hallucinations.
+* **Data Protection:** NDPR compliance. Consent forms for data storage. Encrypted at rest & in transit.
+* **Audit Logs:** All actions logged for dispute resolution.
+
+---
+
+## 7. Monetization Strategy
+
+* **Commission:** 10–20% per transaction.
+* **Subscription:** Premium plans for lawyers (priority placement, advanced AI tools).
+* **Per-service fees:** Fixed price for standard docs (NDAs, tenancy agreements).
+* **Enterprise SaaS:** Offer law firms a white-label case management + AI suite.
+
+---
+
+## 8. MVP Scope (Phase 1)
+
+* User intake & AI triage.
+* Lawyer registration & manual verification.
+* Search & matching.
+* Secure chat + document upload.
+* Escrow payments.
+* Admin verification dashboard.
+* Basic AI draft generator (letters, contracts).
+
+---
+
+## 9. Timeline (MVP \~12 weeks)
+
+| Phase                  | Duration | Deliverables                                         |
+| ---------------------- | -------- | ---------------------------------------------------- |
+| Discovery & compliance | 2 weeks  | Final spec, NBA compliance checklist, UI mockups     |
+| Core platform build    | 4 weeks  | User + lawyer auth, profiles, intake, chat, payments |
+| AI integration         | 3 weeks  | Intake triage, document summarizer, draft generator  |
+| Verification + Admin   | 2 weeks  | Lawyer onboarding dashboard, manual checks           |
+| Pilot & testing        | 1 week   | Invite 20 lawyers, 50 users for closed beta          |
+
+---
+
+## 10. Success Metrics
+
+* # of verified lawyers onboarded.
+* Time from case intake → first lawyer response.
+* % of users completing payment.
+* Repeat clients per month.
+* AI usage: % drafts/lawyer reviews accepted vs corrected.
+* NPS (user & lawyer satisfaction).
+
+---
+
+⚡ **Next Steps**
+
+1. Finalize MVP feature set (choose AI modules to include at launch).
+2. Spin up AWS account infra (Cognito, RDS, S3, OpenSearch, Bedrock).
+3. Prepare Nigerian legal corpus (start with statutes + sample judgments).
+4. Draft NBA-compliant lawyer verification workflow.
+5. Recruit pilot lawyers for closed beta.
+
+---
+
+Do you want me to also create a **high-level system diagram (AWS architecture)** for this PRD so your dev team can visualize the setup?
