@@ -8,6 +8,7 @@ import {
   reviews,
   type User, 
   type InsertUser,
+  type UpsertUser,
   type LawyerProfile,
   type InsertLawyerProfile,
   type Case,
@@ -23,10 +24,11 @@ import { db } from "./db";
 import { eq, and, desc, asc, like, sql } from "drizzle-orm";
 
 export interface IStorage {
-  // User methods
+  // User methods (including Replit Auth requirements)
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  upsertUser(user: UpsertUser): Promise<User>; // Required for Replit Auth
   updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined>;
   updateStripeCustomerId(userId: string, customerId: string): Promise<User | undefined>;
   updateUserStripeInfo(userId: string, data: { customerId: string; subscriptionId: string }): Promise<User | undefined>;
@@ -76,6 +78,21 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db
       .insert(users)
       .values(insertUser)
+      .returning();
+    return user;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
       .returning();
     return user;
   }

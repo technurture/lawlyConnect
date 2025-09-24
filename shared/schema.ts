@@ -1,7 +1,18 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, integer, decimal, jsonb, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, integer, decimal, jsonb, pgEnum, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// Session storage table - Required for Replit Auth
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
 
 // Enums
 export const userTypeEnum = pgEnum("user_type", ["client", "lawyer", "admin"]);
@@ -10,13 +21,13 @@ export const verificationStatusEnum = pgEnum("verification_status", ["pending", 
 export const messageTypeEnum = pgEnum("message_type", ["text", "file", "system"]);
 export const paymentStatusEnum = pgEnum("payment_status", ["pending", "completed", "failed", "refunded"]);
 
-// Users table
+// Users table - Compatible with Replit Auth
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: text("email").notNull().unique(),
-  password: text("password").notNull(),
-  firstName: text("first_name").notNull(),
-  lastName: text("last_name").notNull(),
+  email: text("email").unique(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  profileImageUrl: text("profile_image_url"),
   userType: userTypeEnum("user_type").notNull().default("client"),
   phone: text("phone"),
   isVerified: boolean("is_verified").notNull().default(false),
@@ -198,6 +209,16 @@ export const insertUserSchema = createInsertSchema(users).omit({
   stripeSubscriptionId: true,
 });
 
+// UpsertUser type required for Replit Auth
+export const upsertUserSchema = createInsertSchema(users).pick({
+  id: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  profileImageUrl: true,
+  userType: true,
+});
+
 export const insertLawyerProfileSchema = createInsertSchema(lawyerProfiles).omit({
   id: true,
   createdAt: true,
@@ -238,6 +259,7 @@ export const insertReviewSchema = createInsertSchema(reviews).omit({
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type InsertLawyerProfile = z.infer<typeof insertLawyerProfileSchema>;
 export type LawyerProfile = typeof lawyerProfiles.$inferSelect;
 export type InsertCase = z.infer<typeof insertCaseSchema>;

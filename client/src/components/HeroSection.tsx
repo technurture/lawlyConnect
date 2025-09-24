@@ -62,6 +62,7 @@ export default function HeroSection() {
             <Button 
               size="lg" 
               className="bg-primary-foreground text-primary hover:bg-primary-foreground/90"
+              onClick={() => window.location.href = '/api/login?userType=client'}
               data-testid="button-hero-get-started"
             >
               Get Started - It's Free
@@ -70,9 +71,10 @@ export default function HeroSection() {
               size="lg" 
               variant="outline"
               className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+              onClick={() => window.location.href = '/api/login?userType=lawyer'}
               data-testid="button-hero-find-lawyer"
             >
-              Find a Lawyer
+              Join as Lawyer
             </Button>
           </div>
 
