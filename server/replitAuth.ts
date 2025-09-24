@@ -5,7 +5,7 @@ import passport from "passport";
 import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
-import connectPg from "connect-pg-simple";
+import MongoStore from "connect-mongo";
 import { storage } from "./storage";
 
 if (!process.env.REPLIT_DOMAINS) {
@@ -24,13 +24,19 @@ const getOidcConfig = memoize(
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  const pgStore = connectPg(session);
-  const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
-    createTableIfMissing: true, // Allow creating session table if missing
-    ttl: sessionTtl,
-    tableName: "sessions",
+  const mongoUri = process.env.MONGODB_URI || process.env.DATABASE_URL;
+  
+  if (!mongoUri) {
+    throw new Error("MongoDB URI is required for session storage");
+  }
+  
+  const sessionStore = MongoStore.create({
+    mongoUrl: mongoUri,
+    collectionName: 'sessions',
+    touchAfter: 24 * 3600, // lazy session update
+    ttl: Math.floor(sessionTtl / 1000), // TTL in seconds
   });
+  
   return session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
@@ -38,7 +44,7 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === 'production',
       maxAge: sessionTtl,
     },
   });
@@ -111,18 +117,35 @@ export async function setupAuth(app: Express) {
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
+  // Helper function to get the correct strategy name
+  function getStrategyName(hostname: string): string {
+    const domains = process.env.REPLIT_DOMAINS!.split(",");
+    const matchedDomain = domains.find(domain => 
+      hostname === domain || 
+      hostname.includes(domain) ||
+      domain.includes(hostname)
+    );
+    return `replitauth:${matchedDomain || domains[0]}`;
+  }
+
   app.get("/api/login", (req, res, next) => {
     // Store user type in session for later use
     (req.session as any).userType = req.query.userType || 'client';
     
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    const strategyName = getStrategyName(req.hostname);
+    console.log(`Using auth strategy: ${strategyName} for hostname: ${req.hostname}`);
+    
+    passport.authenticate(strategyName, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
 
   app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    const strategyName = getStrategyName(req.hostname);
+    console.log(`Using auth strategy: ${strategyName} for hostname: ${req.hostname}`);
+    
+    passport.authenticate(strategyName, {
       successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
     })(req, res, next);

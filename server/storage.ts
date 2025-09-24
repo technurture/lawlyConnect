@@ -1,275 +1,442 @@
 // Integration: javascript_database
 import { 
-  users, 
-  lawyerProfiles,
-  cases,
-  messages,
-  payments,
-  reviews,
-  type User, 
+  User, 
+  LawyerProfile, 
+  Case, 
+  Message, 
+  Payment, 
+  Review,
   type InsertUser,
   type UpsertUser,
-  type LawyerProfile,
   type InsertLawyerProfile,
-  type Case,
   type InsertCase,
-  type Message,
   type InsertMessage,
-  type Payment,
   type InsertPayment,
-  type Review,
-  type InsertReview
+  type InsertReview,
+  type IUser,
+  type ILawyerProfile,
+  type ICase,
+  type IMessage,
+  type IPayment,
+  type IReview
 } from "@shared/schema";
-import { db } from "./db";
-import { eq, and, desc, asc, like, sql } from "drizzle-orm";
+import { connectDB } from "./db";
+import { Types } from "mongoose";
 
 export interface IStorage {
   // User methods (including Replit Auth requirements)
-  getUser(id: string): Promise<User | undefined>;
-  getUserByEmail(email: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-  upsertUser(user: UpsertUser): Promise<User>; // Required for Replit Auth
-  updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined>;
-  updateStripeCustomerId(userId: string, customerId: string): Promise<User | undefined>;
-  updateUserStripeInfo(userId: string, data: { customerId: string; subscriptionId: string }): Promise<User | undefined>;
+  getUser(id: string): Promise<IUser | undefined>;
+  getUserByEmail(email: string): Promise<IUser | undefined>;
+  createUser(user: InsertUser): Promise<IUser>;
+  upsertUser(user: UpsertUser): Promise<IUser>; // Required for Replit Auth
+  updateUser(id: string, updates: Partial<InsertUser>): Promise<IUser | undefined>;
+  updatePaystackCustomerId(userId: string, customerId: string): Promise<IUser | undefined>;
+  updateUserPaystackInfo(userId: string, data: { customerId: string; customerCode: string }): Promise<IUser | undefined>;
 
   // Lawyer profile methods
-  getLawyerProfile(userId: string): Promise<LawyerProfile | undefined>;
-  createLawyerProfile(profile: InsertLawyerProfile): Promise<LawyerProfile>;
-  updateLawyerProfile(userId: string, updates: Partial<InsertLawyerProfile>): Promise<LawyerProfile | undefined>;
-  searchLawyers(filters: { specialization?: string; location?: string; verified?: boolean }): Promise<(LawyerProfile & { user: User })[]>;
+  getLawyerProfile(userId: string): Promise<ILawyerProfile | undefined>;
+  createLawyerProfile(profile: InsertLawyerProfile): Promise<ILawyerProfile>;
+  updateLawyerProfile(userId: string, updates: Partial<InsertLawyerProfile>): Promise<ILawyerProfile | undefined>;
+  searchLawyers(filters: { specialization?: string; location?: string; verified?: boolean }): Promise<(ILawyerProfile & { user: IUser })[]>;
   
   // Case methods
-  getCase(id: string): Promise<Case | undefined>;
-  createCase(caseData: InsertCase): Promise<Case>;
-  updateCase(id: string, updates: Partial<Case>): Promise<Case | undefined>;
-  getCasesByClient(clientId: string): Promise<Case[]>;
-  getCasesByLawyer(lawyerId: string): Promise<Case[]>;
-  getPendingCases(): Promise<Case[]>;
+  getCase(id: string): Promise<ICase | undefined>;
+  createCase(caseData: InsertCase): Promise<ICase>;
+  updateCase(id: string, updates: Partial<ICase>): Promise<ICase | undefined>;
+  getCasesByClient(clientId: string): Promise<ICase[]>;
+  getCasesByLawyer(lawyerId: string): Promise<ICase[]>;
+  getPendingCases(): Promise<ICase[]>;
   
   // Message methods
-  getMessagesByCase(caseId: string): Promise<Message[]>;
-  createMessage(message: InsertMessage): Promise<Message>;
+  getMessagesByCase(caseId: string): Promise<IMessage[]>;
+  createMessage(message: InsertMessage): Promise<IMessage>;
   markMessagesAsRead(caseId: string, userId: string): Promise<void>;
   
   // Payment methods
-  createPayment(payment: InsertPayment): Promise<Payment>;
-  updatePaymentStatus(id: string, status: string, stripePaymentIntentId?: string): Promise<Payment | undefined>;
-  getPaymentsByCase(caseId: string): Promise<Payment[]>;
+  createPayment(payment: InsertPayment): Promise<IPayment>;
+  updatePaymentStatus(id: string, status: string, paystackReference?: string): Promise<IPayment | undefined>;
+  getPaymentsByCase(caseId: string): Promise<IPayment[]>;
   
   // Review methods
-  createReview(review: InsertReview): Promise<Review>;
-  getReviewsByLawyer(lawyerId: string): Promise<Review[]>;
+  createReview(review: InsertReview): Promise<IReview>;
+  getReviewsByLawyer(lawyerId: string): Promise<IReview[]>;
 }
 
 export class DatabaseStorage implements IStorage {
+  constructor() {
+    // Ensure database connection is established
+    connectDB().catch(console.error);
+  }
+
+  // Helper method to validate ObjectId
+  private isValidObjectId(id: string): boolean {
+    return Types.ObjectId.isValid(id);
+  }
+
   // User methods
-  async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
+  async getUser(id: string): Promise<IUser | undefined> {
+    try {
+      if (!this.isValidObjectId(id)) return undefined;
+      const user = await User.findById(id);
+      return user || undefined;
+    } catch (error) {
+      console.error('Error getting user:', error);
+      return undefined;
+    }
   }
 
-  async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user || undefined;
+  async getUserByEmail(email: string): Promise<IUser | undefined> {
+    try {
+      const user = await User.findOne({ email });
+      return user || undefined;
+    } catch (error) {
+      console.error('Error getting user by email:', error);
+      return undefined;
+    }
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(insertUser)
-      .returning();
-    return user;
+  async createUser(insertUser: InsertUser): Promise<IUser> {
+    try {
+      const user = new User(insertUser);
+      await user.save();
+      return user;
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw new Error('Failed to create user');
+    }
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
+  async upsertUser(userData: UpsertUser): Promise<IUser> {
+    try {
+      const existingUser = userData.id ? await this.getUser(userData.id) : null;
+      
+      if (existingUser) {
+        // Update existing user
+        Object.assign(existingUser, userData);
+        await existingUser.save();
+        return existingUser;
+      } else {
+        // Create new user
+        const user = new User(userData);
+        await user.save();
+        return user;
+      }
+    } catch (error) {
+      console.error('Error upserting user:', error);
+      throw new Error('Failed to upsert user');
+    }
+  }
+
+  async updateUser(id: string, updates: Partial<InsertUser>): Promise<IUser | undefined> {
+    try {
+      if (!this.isValidObjectId(id)) return undefined;
+      const user = await User.findByIdAndUpdate(id, updates, { new: true });
+      return user || undefined;
+    } catch (error) {
+      console.error('Error updating user:', error);
+      return undefined;
+    }
+  }
+
+  async updatePaystackCustomerId(userId: string, customerId: string): Promise<IUser | undefined> {
+    try {
+      if (!this.isValidObjectId(userId)) return undefined;
+      const user = await User.findByIdAndUpdate(
+        userId, 
+        { paystackCustomerId: customerId }, 
+        { new: true }
+      );
+      return user || undefined;
+    } catch (error) {
+      console.error('Error updating Paystack customer ID:', error);
+      return undefined;
+    }
+  }
+
+  async updateUserPaystackInfo(userId: string, data: { customerId: string; customerCode: string }): Promise<IUser | undefined> {
+    try {
+      if (!this.isValidObjectId(userId)) return undefined;
+      const user = await User.findByIdAndUpdate(
+        userId,
+        { 
+          paystackCustomerId: data.customerId, 
+          paystackCustomerCode: data.customerCode
         },
-      })
-      .returning();
-    return user;
-  }
-
-  async updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined> {
-    const [user] = await db
-      .update(users)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(users.id, id))
-      .returning();
-    return user || undefined;
-  }
-
-  async updateStripeCustomerId(userId: string, customerId: string): Promise<User | undefined> {
-    const [user] = await db
-      .update(users)
-      .set({ stripeCustomerId: customerId, updatedAt: new Date() })
-      .where(eq(users.id, userId))
-      .returning();
-    return user || undefined;
-  }
-
-  async updateUserStripeInfo(userId: string, data: { customerId: string; subscriptionId: string }): Promise<User | undefined> {
-    const [user] = await db
-      .update(users)
-      .set({ 
-        stripeCustomerId: data.customerId, 
-        stripeSubscriptionId: data.subscriptionId,
-        updatedAt: new Date() 
-      })
-      .where(eq(users.id, userId))
-      .returning();
-    return user || undefined;
+        { new: true }
+      );
+      return user || undefined;
+    } catch (error) {
+      console.error('Error updating user Paystack info:', error);
+      return undefined;
+    }
   }
 
   // Lawyer profile methods
-  async getLawyerProfile(userId: string): Promise<LawyerProfile | undefined> {
-    const [profile] = await db.select().from(lawyerProfiles).where(eq(lawyerProfiles.userId, userId));
-    return profile || undefined;
+  async getLawyerProfile(userId: string): Promise<ILawyerProfile | undefined> {
+    try {
+      if (!this.isValidObjectId(userId)) return undefined;
+      const profile = await LawyerProfile.findOne({ userId: new Types.ObjectId(userId) }).populate('userId');
+      return profile || undefined;
+    } catch (error) {
+      console.error('Error getting lawyer profile:', error);
+      return undefined;
+    }
   }
 
-  async createLawyerProfile(profile: InsertLawyerProfile): Promise<LawyerProfile> {
-    const [newProfile] = await db
-      .insert(lawyerProfiles)
-      .values(profile)
-      .returning();
-    return newProfile;
+  async createLawyerProfile(profile: InsertLawyerProfile): Promise<ILawyerProfile> {
+    try {
+      const newProfile = new LawyerProfile({
+        ...profile,
+        userId: new Types.ObjectId(profile.userId)
+      });
+      await newProfile.save();
+      return newProfile;
+    } catch (error) {
+      console.error('Error creating lawyer profile:', error);
+      throw new Error('Failed to create lawyer profile');
+    }
   }
 
-  async updateLawyerProfile(userId: string, updates: Partial<InsertLawyerProfile>): Promise<LawyerProfile | undefined> {
-    const [profile] = await db
-      .update(lawyerProfiles)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(lawyerProfiles.userId, userId))
-      .returning();
-    return profile || undefined;
+  async updateLawyerProfile(userId: string, updates: Partial<InsertLawyerProfile>): Promise<ILawyerProfile | undefined> {
+    try {
+      if (!this.isValidObjectId(userId)) return undefined;
+      const profile = await LawyerProfile.findOneAndUpdate(
+        { userId: new Types.ObjectId(userId) }, 
+        updates, 
+        { new: true }
+      );
+      return profile || undefined;
+    } catch (error) {
+      console.error('Error updating lawyer profile:', error);
+      return undefined;
+    }
   }
 
-  async searchLawyers(filters: { specialization?: string; location?: string; verified?: boolean }): Promise<(LawyerProfile & { user: User })[]> {
-    const results = await db.select()
-      .from(lawyerProfiles)
-      .innerJoin(users, eq(users.id, lawyerProfiles.userId))
-      .where(eq(lawyerProfiles.isAvailable, true));
+  async searchLawyers(filters: { specialization?: string; location?: string; verified?: boolean }): Promise<(ILawyerProfile & { user: IUser })[]> {
+    try {
+      const query: any = { isAvailable: true };
+      
+      if (filters.verified !== undefined) {
+        query.verificationStatus = filters.verified ? 'approved' : { $ne: 'approved' };
+      }
+      
+      if (filters.specialization) {
+        query.specializations = { $in: [new RegExp(filters.specialization, 'i')] };
+      }
+      
+      if (filters.location) {
+        query.location = new RegExp(filters.location, 'i');
+      }
 
-    // Transform results to match expected type
-    return results.map(result => ({
-      ...result.lawyer_profiles,
-      user: result.users
-    }));
+      const profiles = await LawyerProfile.find(query).populate('userId').lean();
+      
+      return profiles.map(profile => ({
+        ...profile,
+        user: profile.userId as any
+      })) as (ILawyerProfile & { user: IUser })[];
+    } catch (error) {
+      console.error('Error searching lawyers:', error);
+      return [];
+    }
   }
 
   // Case methods
-  async getCase(id: string): Promise<Case | undefined> {
-    const [caseRecord] = await db.select().from(cases).where(eq(cases.id, id));
-    return caseRecord || undefined;
+  async getCase(id: string): Promise<ICase | undefined> {
+    try {
+      if (!this.isValidObjectId(id)) return undefined;
+      const caseRecord = await Case.findById(id);
+      return caseRecord || undefined;
+    } catch (error) {
+      console.error('Error getting case:', error);
+      return undefined;
+    }
   }
 
-  async createCase(caseData: InsertCase): Promise<Case> {
-    const [newCase] = await db
-      .insert(cases)
-      .values(caseData)
-      .returning();
-    return newCase;
+  async createCase(caseData: InsertCase): Promise<ICase> {
+    try {
+      const newCase = new Case({
+        ...caseData,
+        clientId: new Types.ObjectId(caseData.clientId)
+      });
+      await newCase.save();
+      return newCase;
+    } catch (error) {
+      console.error('Error creating case:', error);
+      throw new Error('Failed to create case');
+    }
   }
 
-  async updateCase(id: string, updates: Partial<Case>): Promise<Case | undefined> {
-    const [caseRecord] = await db
-      .update(cases)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(cases.id, id))
-      .returning();
-    return caseRecord || undefined;
+  async updateCase(id: string, updates: Partial<ICase>): Promise<ICase | undefined> {
+    try {
+      if (!this.isValidObjectId(id)) return undefined;
+      const caseRecord = await Case.findByIdAndUpdate(id, updates, { new: true });
+      return caseRecord || undefined;
+    } catch (error) {
+      console.error('Error updating case:', error);
+      return undefined;
+    }
   }
 
-  async getCasesByClient(clientId: string): Promise<Case[]> {
-    return await db.select().from(cases).where(eq(cases.clientId, clientId)).orderBy(desc(cases.createdAt));
+  async getCasesByClient(clientId: string): Promise<ICase[]> {
+    try {
+      if (!this.isValidObjectId(clientId)) return [];
+      const cases = await Case.find({ clientId: new Types.ObjectId(clientId) })
+        .sort({ createdAt: -1 });
+      return cases;
+    } catch (error) {
+      console.error('Error getting cases by client:', error);
+      return [];
+    }
   }
 
-  async getCasesByLawyer(lawyerId: string): Promise<Case[]> {
-    return await db.select().from(cases).where(eq(cases.lawyerId, lawyerId)).orderBy(desc(cases.createdAt));
+  async getCasesByLawyer(lawyerId: string): Promise<ICase[]> {
+    try {
+      if (!this.isValidObjectId(lawyerId)) return [];
+      const cases = await Case.find({ lawyerId: new Types.ObjectId(lawyerId) })
+        .sort({ createdAt: -1 });
+      return cases;
+    } catch (error) {
+      console.error('Error getting cases by lawyer:', error);
+      return [];
+    }
   }
 
-  async getPendingCases(): Promise<Case[]> {
-    return await db.select().from(cases).where(eq(cases.status, 'pending')).orderBy(desc(cases.createdAt));
+  async getPendingCases(): Promise<ICase[]> {
+    try {
+      const cases = await Case.find({ status: 'pending' })
+        .sort({ createdAt: -1 });
+      return cases;
+    } catch (error) {
+      console.error('Error getting pending cases:', error);
+      return [];
+    }
   }
 
   // Message methods
-  async getMessagesByCase(caseId: string): Promise<Message[]> {
-    return await db.select().from(messages).where(eq(messages.caseId, caseId)).orderBy(asc(messages.createdAt));
+  async getMessagesByCase(caseId: string): Promise<IMessage[]> {
+    try {
+      if (!this.isValidObjectId(caseId)) return [];
+      const messages = await Message.find({ caseId: new Types.ObjectId(caseId) })
+        .sort({ createdAt: 1 });
+      return messages;
+    } catch (error) {
+      console.error('Error getting messages by case:', error);
+      return [];
+    }
   }
 
-  async createMessage(message: InsertMessage): Promise<Message> {
-    const [newMessage] = await db
-      .insert(messages)
-      .values(message)
-      .returning();
-    return newMessage;
+  async createMessage(message: InsertMessage): Promise<IMessage> {
+    try {
+      const newMessage = new Message({
+        ...message,
+        caseId: new Types.ObjectId(message.caseId),
+        senderId: new Types.ObjectId(message.senderId)
+      });
+      await newMessage.save();
+      return newMessage;
+    } catch (error) {
+      console.error('Error creating message:', error);
+      throw new Error('Failed to create message');
+    }
   }
 
   async markMessagesAsRead(caseId: string, userId: string): Promise<void> {
-    await db
-      .update(messages)
-      .set({ isRead: true })
-      .where(and(
-        eq(messages.caseId, caseId),
-        eq(messages.senderId, userId)
-      ));
+    try {
+      if (!this.isValidObjectId(caseId) || !this.isValidObjectId(userId)) return;
+      await Message.updateMany(
+        { 
+          caseId: new Types.ObjectId(caseId), 
+          senderId: new Types.ObjectId(userId) 
+        },
+        { isRead: true }
+      );
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+    }
   }
 
   // Payment methods
-  async createPayment(payment: InsertPayment): Promise<Payment> {
-    const [newPayment] = await db
-      .insert(payments)
-      .values(payment)
-      .returning();
-    return newPayment;
-  }
-
-  async updatePaymentStatus(id: string, status: string, stripePaymentIntentId?: string): Promise<Payment | undefined> {
-    const updates: any = { status, updatedAt: new Date() };
-    if (stripePaymentIntentId) {
-      updates.stripePaymentIntentId = stripePaymentIntentId;
+  async createPayment(payment: InsertPayment): Promise<IPayment> {
+    try {
+      const newPayment = new Payment({
+        ...payment,
+        caseId: new Types.ObjectId(payment.caseId),
+        clientId: new Types.ObjectId(payment.clientId),
+        lawyerId: new Types.ObjectId(payment.lawyerId)
+      });
+      await newPayment.save();
+      return newPayment;
+    } catch (error) {
+      console.error('Error creating payment:', error);
+      throw new Error('Failed to create payment');
     }
-    
-    const [payment] = await db
-      .update(payments)
-      .set(updates)
-      .where(eq(payments.id, id))
-      .returning();
-    return payment || undefined;
   }
 
-  async getPaymentsByCase(caseId: string): Promise<Payment[]> {
-    return await db.select().from(payments).where(eq(payments.caseId, caseId)).orderBy(desc(payments.createdAt));
+  async updatePaymentStatus(id: string, status: string, paystackReference?: string): Promise<IPayment | undefined> {
+    try {
+      if (!this.isValidObjectId(id)) return undefined;
+      const updates: any = { status };
+      if (paystackReference) {
+        updates.paystackReference = paystackReference;
+      }
+      
+      const payment = await Payment.findByIdAndUpdate(id, updates, { new: true });
+      return payment || undefined;
+    } catch (error) {
+      console.error('Error updating payment status:', error);
+      return undefined;
+    }
+  }
+
+  async getPaymentsByCase(caseId: string): Promise<IPayment[]> {
+    try {
+      if (!this.isValidObjectId(caseId)) return [];
+      const payments = await Payment.find({ caseId: new Types.ObjectId(caseId) })
+        .sort({ createdAt: -1 });
+      return payments;
+    } catch (error) {
+      console.error('Error getting payments by case:', error);
+      return [];
+    }
   }
 
   // Review methods
-  async createReview(review: InsertReview): Promise<Review> {
-    const [newReview] = await db
-      .insert(reviews)
-      .values(review)
-      .returning();
-    
-    // Update lawyer's rating
-    const lawyerReviews = await db.select().from(reviews).where(eq(reviews.lawyerId, review.lawyerId));
-    const avgRating = lawyerReviews.reduce((sum, r) => sum + r.rating, 0) / lawyerReviews.length;
-    
-    await db
-      .update(lawyerProfiles)
-      .set({ rating: avgRating.toFixed(2), updatedAt: new Date() })
-      .where(eq(lawyerProfiles.userId, review.lawyerId));
-    
-    return newReview;
+  async createReview(review: InsertReview): Promise<IReview> {
+    try {
+      const newReview = new Review({
+        ...review,
+        caseId: new Types.ObjectId(review.caseId),
+        clientId: new Types.ObjectId(review.clientId),
+        lawyerId: new Types.ObjectId(review.lawyerId)
+      });
+      await newReview.save();
+      
+      // Update lawyer's rating
+      const lawyerReviews = await Review.find({ lawyerId: new Types.ObjectId(review.lawyerId) });
+      const avgRating = lawyerReviews.reduce((sum, r) => sum + r.rating, 0) / lawyerReviews.length;
+      
+      await LawyerProfile.findOneAndUpdate(
+        { userId: new Types.ObjectId(review.lawyerId) },
+        { rating: parseFloat(avgRating.toFixed(2)) }
+      );
+      
+      return newReview;
+    } catch (error) {
+      console.error('Error creating review:', error);
+      throw new Error('Failed to create review');
+    }
   }
 
-  async getReviewsByLawyer(lawyerId: string): Promise<Review[]> {
-    return await db.select().from(reviews).where(eq(reviews.lawyerId, lawyerId)).orderBy(desc(reviews.createdAt));
+  async getReviewsByLawyer(lawyerId: string): Promise<IReview[]> {
+    try {
+      if (!this.isValidObjectId(lawyerId)) return [];
+      const reviews = await Review.find({ lawyerId: new Types.ObjectId(lawyerId) })
+        .sort({ createdAt: -1 });
+      return reviews;
+    } catch (error) {
+      console.error('Error getting reviews by lawyer:', error);
+      return [];
+    }
   }
 }
 

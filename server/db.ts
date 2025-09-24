@@ -1,16 +1,38 @@
 // Integration: javascript_database
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
+import mongoose from 'mongoose';
 import * as schema from "@shared/schema";
 
-neonConfig.webSocketConstructor = ws;
-
-if (!process.env.DATABASE_URL) {
+if (!process.env.MONGODB_URI && !process.env.DATABASE_URL) {
   throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
+    "MONGODB_URI or DATABASE_URL must be set. Did you forget to provision a database?",
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle({ client: pool, schema });
+const MONGODB_URI = process.env.MONGODB_URI || process.env.DATABASE_URL;
+
+// MongoDB connection
+export const connectDB = async () => {
+  try {
+    if (mongoose.connection.readyState === 1) {
+      return mongoose.connection;
+    }
+    
+    await mongoose.connect(MONGODB_URI!, {
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
+    
+    console.log('MongoDB connected successfully');
+    return mongoose.connection;
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    throw error;
+  }
+};
+
+// Auto-connect on import
+connectDB().catch(console.error);
+
+export { mongoose };
+export const db = mongoose;

@@ -1,272 +1,354 @@
-import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, integer, decimal, jsonb, pgEnum, index } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
-
-// Session storage table - Required for Replit Auth
-export const sessions = pgTable(
-  "sessions",
-  {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
-    expire: timestamp("expire").notNull(),
-  },
-  (table) => [index("IDX_session_expire").on(table.expire)],
-);
+import mongoose, { Schema, Document, Types } from 'mongoose';
+import { z } from 'zod';
 
 // Enums
-export const userTypeEnum = pgEnum("user_type", ["client", "lawyer", "admin"]);
-export const caseStatusEnum = pgEnum("case_status", ["pending", "matched", "in_progress", "resolved", "closed"]);
-export const verificationStatusEnum = pgEnum("verification_status", ["pending", "approved", "rejected"]);
-export const messageTypeEnum = pgEnum("message_type", ["text", "file", "system"]);
-export const paymentStatusEnum = pgEnum("payment_status", ["pending", "completed", "failed", "refunded"]);
+export const UserType = {
+  CLIENT: 'client',
+  LAWYER: 'lawyer',
+  ADMIN: 'admin'
+} as const;
 
-// Users table - Compatible with Replit Auth
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: text("email").unique(),
-  firstName: text("first_name"),
-  lastName: text("last_name"),
-  profileImageUrl: text("profile_image_url"),
-  userType: userTypeEnum("user_type").notNull().default("client"),
-  phone: text("phone"),
-  isVerified: boolean("is_verified").notNull().default(false),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  // Stripe integration fields
-  stripeCustomerId: text("stripe_customer_id"),
-  stripeSubscriptionId: text("stripe_subscription_id"),
+export const CaseStatus = {
+  PENDING: 'pending',
+  MATCHED: 'matched',
+  IN_PROGRESS: 'in_progress',
+  RESOLVED: 'resolved',
+  CLOSED: 'closed'
+} as const;
+
+export const VerificationStatus = {
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  REJECTED: 'rejected'
+} as const;
+
+export const MessageType = {
+  TEXT: 'text',
+  FILE: 'file',
+  SYSTEM: 'system'
+} as const;
+
+export const PaymentStatus = {
+  PENDING: 'pending',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+  REFUNDED: 'refunded'
+} as const;
+
+// MongoDB Session Schema (compatible with express-session + MongoDB)
+const SessionSchema = new Schema({
+  _id: { type: String, required: true },
+  expires: { type: Date, required: true },
+  session: { type: Schema.Types.Mixed, required: true }
+}, {
+  collection: 'sessions'
 });
 
-// Lawyer profiles
-export const lawyerProfiles = pgTable("lawyer_profiles", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  barNumber: text("bar_number").notNull(),
-  yearsOfExperience: integer("years_of_experience").notNull(),
-  specializations: text("specializations").array().notNull(),
-  location: text("location").notNull(),
-  bio: text("bio"),
-  hourlyRate: decimal("hourly_rate", { precision: 10, scale: 2 }),
-  consultationFee: decimal("consultation_fee", { precision: 10, scale: 2 }),
-  verificationStatus: verificationStatusEnum("verification_status").notNull().default("pending"),
-  verificationDocuments: jsonb("verification_documents"), // NBA cert, enrollment cert, etc.
-  rating: decimal("rating", { precision: 3, scale: 2 }).default("0.00"),
-  totalCases: integer("total_cases").notNull().default(0),
-  isAvailable: boolean("is_available").notNull().default(true),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+export const Session = mongoose.model('Session', SessionSchema);
+
+// User Schema
+const UserSchema = new Schema({
+  email: { type: String, unique: true, sparse: true },
+  firstName: String,
+  lastName: String,
+  profileImageUrl: String,
+  userType: {
+    type: String,
+    enum: Object.values(UserType),
+    default: UserType.CLIENT
+  },
+  phone: String,
+  isVerified: { type: Boolean, default: false },
+  // Paystack integration fields
+  paystackCustomerId: String,
+  paystackCustomerCode: String,
+}, {
+  timestamps: true
 });
 
-// Cases
-export const cases = pgTable("cases", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clientId: varchar("client_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  lawyerId: varchar("lawyer_id").references(() => users.id, { onDelete: "set null" }),
-  title: text("title").notNull(),
-  description: text("description").notNull(),
-  category: text("category").notNull(), // AI categorized
-  urgency: text("urgency").notNull(), // low, medium, high, urgent
-  status: caseStatusEnum("status").notNull().default("pending"),
-  budget: decimal("budget", { precision: 10, scale: 2 }),
-  aiSummary: text("ai_summary"), // AI-generated case summary
-  aiRecommendations: jsonb("ai_recommendations"), // AI lawyer matching recommendations
-  documents: jsonb("documents"), // uploaded documents metadata
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+export const User = mongoose.model('User', UserSchema);
+
+// Lawyer Profile Schema
+const LawyerProfileSchema = new Schema({
+  userId: { type: Types.ObjectId, ref: 'User', required: true },
+  barNumber: { type: String, required: true },
+  yearsOfExperience: { type: Number, required: true },
+  specializations: [{ type: String, required: true }],
+  location: { type: String, required: true },
+  bio: String,
+  hourlyRate: { type: Number, get: (v: number) => parseFloat(v?.toFixed(2)) },
+  consultationFee: { type: Number, get: (v: number) => parseFloat(v?.toFixed(2)) },
+  verificationStatus: {
+    type: String,
+    enum: Object.values(VerificationStatus),
+    default: VerificationStatus.PENDING
+  },
+  verificationDocuments: Schema.Types.Mixed, // NBA cert, enrollment cert, etc.
+  rating: { type: Number, default: 0.0, get: (v: number) => parseFloat(v?.toFixed(2)) },
+  totalCases: { type: Number, default: 0 },
+  isAvailable: { type: Boolean, default: true },
+}, {
+  timestamps: true,
+  toJSON: { getters: true },
+  toObject: { getters: true }
 });
 
-// Messages
-export const messages = pgTable("messages", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  caseId: varchar("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
-  senderId: varchar("sender_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  messageType: messageTypeEnum("message_type").notNull().default("text"),
-  content: text("content"),
-  fileUrl: text("file_url"), // for file messages
-  fileName: text("file_name"), // for file messages
-  fileSize: integer("file_size"), // for file messages
-  isRead: boolean("is_read").notNull().default(false),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+export const LawyerProfile = mongoose.model('LawyerProfile', LawyerProfileSchema);
+
+// Case Schema
+const CaseSchema = new Schema({
+  clientId: { type: Types.ObjectId, ref: 'User', required: true },
+  lawyerId: { type: Types.ObjectId, ref: 'User' },
+  title: { type: String, required: true },
+  description: { type: String, required: true },
+  category: { type: String, required: true }, // AI categorized
+  urgency: { type: String, required: true }, // low, medium, high, urgent
+  status: {
+    type: String,
+    enum: Object.values(CaseStatus),
+    default: CaseStatus.PENDING
+  },
+  budget: { type: Number, get: (v: number) => parseFloat(v?.toFixed(2)) },
+  aiSummary: String, // AI-generated case summary
+  aiRecommendations: Schema.Types.Mixed, // AI lawyer matching recommendations
+  documents: Schema.Types.Mixed, // uploaded documents metadata
+}, {
+  timestamps: true,
+  toJSON: { getters: true },
+  toObject: { getters: true }
 });
 
-// Payments
-export const payments = pgTable("payments", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  caseId: varchar("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
-  clientId: varchar("client_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  lawyerId: varchar("lawyer_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  platformFee: decimal("platform_fee", { precision: 10, scale: 2 }).notNull(),
-  lawyerAmount: decimal("lawyer_amount", { precision: 10, scale: 2 }).notNull(),
-  status: paymentStatusEnum("status").notNull().default("pending"),
-  stripePaymentIntentId: text("stripe_payment_intent_id"),
-  description: text("description"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+export const Case = mongoose.model('Case', CaseSchema);
+
+// Message Schema
+const MessageSchema = new Schema({
+  caseId: { type: Types.ObjectId, ref: 'Case', required: true },
+  senderId: { type: Types.ObjectId, ref: 'User', required: true },
+  messageType: {
+    type: String,
+    enum: Object.values(MessageType),
+    default: MessageType.TEXT
+  },
+  content: String,
+  fileUrl: String, // for file messages
+  fileName: String, // for file messages
+  fileSize: Number, // for file messages
+  isRead: { type: Boolean, default: false },
+}, {
+  timestamps: true
 });
 
-// Reviews
-export const reviews = pgTable("reviews", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  caseId: varchar("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
-  clientId: varchar("client_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  lawyerId: varchar("lawyer_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  rating: integer("rating").notNull(),
-  comment: text("comment"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+export const Message = mongoose.model('Message', MessageSchema);
+
+// Payment Schema
+const PaymentSchema = new Schema({
+  caseId: { type: Types.ObjectId, ref: 'Case', required: true },
+  clientId: { type: Types.ObjectId, ref: 'User', required: true },
+  lawyerId: { type: Types.ObjectId, ref: 'User', required: true },
+  amount: { type: Number, required: true, get: (v: number) => parseFloat(v?.toFixed(2)) },
+  platformFee: { type: Number, required: true, get: (v: number) => parseFloat(v?.toFixed(2)) },
+  lawyerAmount: { type: Number, required: true, get: (v: number) => parseFloat(v?.toFixed(2)) },
+  status: {
+    type: String,
+    enum: Object.values(PaymentStatus),
+    default: PaymentStatus.PENDING
+  },
+  paystackReference: String,
+  paystackTransactionId: String,
+  description: String,
+}, {
+  timestamps: true,
+  toJSON: { getters: true },
+  toObject: { getters: true }
 });
 
-// Relations
-export const usersRelations = relations(users, ({ one, many }) => ({
-  lawyerProfile: one(lawyerProfiles, {
-    fields: [users.id],
-    references: [lawyerProfiles.userId],
-  }),
-  clientCases: many(cases, { relationName: "client_cases" }),
-  lawyerCases: many(cases, { relationName: "lawyer_cases" }),
-  sentMessages: many(messages),
-  clientPayments: many(payments, { relationName: "client_payments" }),
-  lawyerPayments: many(payments, { relationName: "lawyer_payments" }),
-  clientReviews: many(reviews, { relationName: "client_reviews" }),
-  lawyerReviews: many(reviews, { relationName: "lawyer_reviews" }),
-}));
+export const Payment = mongoose.model('Payment', PaymentSchema);
 
-export const lawyerProfilesRelations = relations(lawyerProfiles, ({ one }) => ({
-  user: one(users, {
-    fields: [lawyerProfiles.userId],
-    references: [users.id],
-  }),
-}));
-
-export const casesRelations = relations(cases, ({ one, many }) => ({
-  client: one(users, {
-    fields: [cases.clientId],
-    references: [users.id],
-    relationName: "client_cases",
-  }),
-  lawyer: one(users, {
-    fields: [cases.lawyerId],
-    references: [users.id],
-    relationName: "lawyer_cases",
-  }),
-  messages: many(messages),
-  payments: many(payments),
-  reviews: many(reviews),
-}));
-
-export const messagesRelations = relations(messages, ({ one }) => ({
-  case: one(cases, {
-    fields: [messages.caseId],
-    references: [cases.id],
-  }),
-  sender: one(users, {
-    fields: [messages.senderId],
-    references: [users.id],
-  }),
-}));
-
-export const paymentsRelations = relations(payments, ({ one }) => ({
-  case: one(cases, {
-    fields: [payments.caseId],
-    references: [cases.id],
-  }),
-  client: one(users, {
-    fields: [payments.clientId],
-    references: [users.id],
-    relationName: "client_payments",
-  }),
-  lawyer: one(users, {
-    fields: [payments.lawyerId],
-    references: [users.id],
-    relationName: "lawyer_payments",
-  }),
-}));
-
-export const reviewsRelations = relations(reviews, ({ one }) => ({
-  case: one(cases, {
-    fields: [reviews.caseId],
-    references: [cases.id],
-  }),
-  client: one(users, {
-    fields: [reviews.clientId],
-    references: [users.id],
-    relationName: "client_reviews",
-  }),
-  lawyer: one(users, {
-    fields: [reviews.lawyerId],
-    references: [users.id],
-    relationName: "lawyer_reviews",
-  }),
-}));
-
-// Insert schemas
-export const insertUserSchema = createInsertSchema(users).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-  stripeCustomerId: true,
-  stripeSubscriptionId: true,
+// Review Schema
+const ReviewSchema = new Schema({
+  caseId: { type: Types.ObjectId, ref: 'Case', required: true },
+  clientId: { type: Types.ObjectId, ref: 'User', required: true },
+  lawyerId: { type: Types.ObjectId, ref: 'User', required: true },
+  rating: { type: Number, required: true, min: 1, max: 5 },
+  comment: String,
+}, {
+  timestamps: true
 });
 
-// UpsertUser type required for Replit Auth
-export const upsertUserSchema = createInsertSchema(users).pick({
-  id: true,
-  email: true,
-  firstName: true,
-  lastName: true,
-  profileImageUrl: true,
-  userType: true,
+export const Review = mongoose.model('Review', ReviewSchema);
+
+// Zod validation schemas
+export const insertUserSchema = z.object({
+  email: z.string().email().optional(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  profileImageUrl: z.string().url().optional(),
+  userType: z.enum(['client', 'lawyer', 'admin']).default('client'),
+  phone: z.string().optional(),
+  isVerified: z.boolean().default(false),
 });
 
-export const insertLawyerProfileSchema = createInsertSchema(lawyerProfiles).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-  rating: true,
-  totalCases: true,
+// UpsertUser schema for authentication
+export const upsertUserSchema = z.object({
+  id: z.string().optional(),
+  email: z.string().email().optional(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  profileImageUrl: z.string().url().optional(),
+  userType: z.enum(['client', 'lawyer', 'admin']).default('client'),
 });
 
-export const insertCaseSchema = createInsertSchema(cases).omit({
-  id: true,
-  lawyerId: true,
-  status: true,
-  aiSummary: true,
-  aiRecommendations: true,
-  createdAt: true,
-  updatedAt: true,
+export const insertLawyerProfileSchema = z.object({
+  userId: z.string(),
+  barNumber: z.string(),
+  yearsOfExperience: z.number().int().positive(),
+  specializations: z.array(z.string()).min(1),
+  location: z.string(),
+  bio: z.string().optional(),
+  hourlyRate: z.number().positive().optional(),
+  consultationFee: z.number().positive().optional(),
+  verificationDocuments: z.any().optional(),
+  isAvailable: z.boolean().default(true),
 });
 
-export const insertMessageSchema = createInsertSchema(messages).omit({
-  id: true,
-  isRead: true,
-  createdAt: true,
+export const insertCaseSchema = z.object({
+  clientId: z.string(),
+  title: z.string().min(1),
+  description: z.string().min(10),
+  category: z.string(),
+  urgency: z.enum(['low', 'medium', 'high', 'urgent']),
+  budget: z.number().positive().optional(),
+  documents: z.any().optional(),
 });
 
-export const insertPaymentSchema = createInsertSchema(payments).omit({
-  id: true,
-  status: true,
-  stripePaymentIntentId: true,
-  createdAt: true,
-  updatedAt: true,
+export const insertMessageSchema = z.object({
+  caseId: z.string(),
+  senderId: z.string(),
+  messageType: z.enum(['text', 'file', 'system']).default('text'),
+  content: z.string().optional(),
+  fileUrl: z.string().url().optional(),
+  fileName: z.string().optional(),
+  fileSize: z.number().int().positive().optional(),
 });
 
-export const insertReviewSchema = createInsertSchema(reviews).omit({
-  id: true,
-  createdAt: true,
+export const insertPaymentSchema = z.object({
+  caseId: z.string(),
+  clientId: z.string(),
+  lawyerId: z.string(),
+  amount: z.number().positive(),
+  platformFee: z.number().positive(),
+  lawyerAmount: z.number().positive(),
+  paystackReference: z.string().optional(),
+  paystackTransactionId: z.string().optional(),
+  description: z.string().optional(),
 });
 
-// Types
+export const insertReviewSchema = z.object({
+  caseId: z.string(),
+  clientId: z.string(),
+  lawyerId: z.string(),
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().optional(),
+});
+
+// TypeScript types
 export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type InsertLawyerProfile = z.infer<typeof insertLawyerProfileSchema>;
-export type LawyerProfile = typeof lawyerProfiles.$inferSelect;
 export type InsertCase = z.infer<typeof insertCaseSchema>;
-export type Case = typeof cases.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
-export type Message = typeof messages.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
-export type Payment = typeof payments.$inferSelect;
 export type InsertReview = z.infer<typeof insertReviewSchema>;
-export type Review = typeof reviews.$inferSelect;
+
+// Document interfaces
+export interface IUser extends Document {
+  _id: Types.ObjectId;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  profileImageUrl?: string;
+  userType: 'client' | 'lawyer' | 'admin';
+  phone?: string;
+  isVerified: boolean;
+  paystackCustomerId?: string;
+  paystackCustomerCode?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ILawyerProfile extends Document {
+  _id: Types.ObjectId;
+  userId: Types.ObjectId;
+  barNumber: string;
+  yearsOfExperience: number;
+  specializations: string[];
+  location: string;
+  bio?: string;
+  hourlyRate?: number;
+  consultationFee?: number;
+  verificationStatus: 'pending' | 'approved' | 'rejected';
+  verificationDocuments?: any;
+  rating: number;
+  totalCases: number;
+  isAvailable: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ICase extends Document {
+  _id: Types.ObjectId;
+  clientId: Types.ObjectId;
+  lawyerId?: Types.ObjectId;
+  title: string;
+  description: string;
+  category: string;
+  urgency: string;
+  status: 'pending' | 'matched' | 'in_progress' | 'resolved' | 'closed';
+  budget?: number;
+  aiSummary?: string;
+  aiRecommendations?: any;
+  documents?: any;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IMessage extends Document {
+  _id: Types.ObjectId;
+  caseId: Types.ObjectId;
+  senderId: Types.ObjectId;
+  messageType: 'text' | 'file' | 'system';
+  content?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  isRead: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IPayment extends Document {
+  _id: Types.ObjectId;
+  caseId: Types.ObjectId;
+  clientId: Types.ObjectId;
+  lawyerId: Types.ObjectId;
+  amount: number;
+  platformFee: number;
+  lawyerAmount: number;
+  status: 'pending' | 'completed' | 'failed' | 'refunded';
+  paystackReference?: string;
+  paystackTransactionId?: string;
+  description?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IReview extends Document {
+  _id: Types.ObjectId;
+  caseId: Types.ObjectId;
+  clientId: Types.ObjectId;
+  lawyerId: Types.ObjectId;
+  rating: number;
+  comment?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
