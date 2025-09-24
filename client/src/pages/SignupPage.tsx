@@ -1,11 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Scale, UserPlus, Briefcase, CheckCircle } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 export default function SignupPage() {
+  const [, setLocation] = useLocation();
+
   const handleSignup = (userType: 'client' | 'lawyer') => {
-    window.location.href = `/api/login?userType=${userType}`;
+    setLocation(`/signup/${userType}`);
   };
 
   const clientFeatures = [

@@ -10,6 +10,8 @@ import Dashboard from "./pages/Dashboard";
 import NotFound from "@/pages/not-found";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
+import ClientSignupForm from "./pages/ClientSignupForm";
+import LawyerSignupForm from "./pages/LawyerSignupForm";
 
 // Protected Route component for routes that require authentication
 function ProtectedRoute({ component: Component }: { component: () => JSX.Element }) {
@@ -39,6 +41,8 @@ function Router() {
       <Route path="/" component={LandingPage} />
       <Route path="/login" component={LoginPage} />
       <Route path="/signup" component={SignupPage} />
+      <Route path="/signup/client" component={ClientSignupForm} />
+      <Route path="/signup/lawyer" component={LawyerSignupForm} />
       
       {/* Protected routes - require authentication */}
       <Route path="/dashboard">
