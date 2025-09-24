@@ -108,19 +108,23 @@ export class DatabaseStorage implements IStorage {
 
   async upsertUser(userData: UpsertUser): Promise<IUser> {
     try {
-      const existingUser = userData.id ? await this.getUser(userData.id) : null;
+      // Use MongoDB's findOneAndUpdate with upsert option
+      const user = await User.findOneAndUpdate(
+        { 
+          $or: [
+            { _id: userData.id },
+            { email: userData.email }
+          ]
+        },
+        userData,
+        { 
+          new: true, 
+          upsert: true,
+          setDefaultsOnInsert: true
+        }
+      );
       
-      if (existingUser) {
-        // Update existing user
-        Object.assign(existingUser, userData);
-        await existingUser.save();
-        return existingUser;
-      } else {
-        // Create new user
-        const user = new User(userData);
-        await user.save();
-        return user;
-      }
+      return user;
     } catch (error) {
       console.error('Error upserting user:', error);
       throw new Error('Failed to upsert user');
