@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Search, Shield, Zap } from "lucide-react";
+import { Link } from "wouter";
 import heroImage from "@assets/generated_images/Nigerian_legal_professionals_consultation_0da73d3b.png";
 
 export default function HeroSection() {
@@ -59,23 +60,25 @@ export default function HeroSection() {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              size="lg" 
-              className="bg-primary-foreground text-primary hover:bg-primary-foreground/90"
-              onClick={() => window.location.href = '/api/login?userType=client'}
-              data-testid="button-hero-get-started"
-            >
-              Get Started - It's Free
-            </Button>
-            <Button 
-              size="lg" 
-              variant="outline"
-              className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
-              onClick={() => window.location.href = '/api/login?userType=lawyer'}
-              data-testid="button-hero-find-lawyer"
-            >
-              Join as Lawyer
-            </Button>
+            <Link href="/signup">
+              <Button 
+                size="lg" 
+                className="bg-primary-foreground text-primary hover:bg-primary-foreground/90"
+                data-testid="button-hero-get-started"
+              >
+                Get Started - It's Free
+              </Button>
+            </Link>
+            <Link href="/signup">
+              <Button 
+                size="lg" 
+                variant="outline"
+                className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+                data-testid="button-hero-find-lawyer"
+              >
+                Join as Lawyer
+              </Button>
+            </Link>
           </div>
 
           {/* Trust Indicator */}

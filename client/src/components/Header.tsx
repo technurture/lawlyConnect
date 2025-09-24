@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Scale, Menu, X } from "lucide-react";
 import { useState } from "react";
+import { Link } from "wouter";
 import ThemeToggle from "./ThemeToggle";
 
 export default function Header() {
@@ -17,10 +18,10 @@ export default function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <nav className="container flex h-16 items-center justify-between px-4">
         {/* Logo */}
-        <div className="flex items-center space-x-2" data-testid="logo-lawly">
+        <Link href="/" className="flex items-center space-x-2" data-testid="logo-lawly">
           <Scale className="h-8 w-8 text-primary" />
           <span className="text-2xl font-bold text-foreground">Lawly</span>
-        </div>
+        </Link>
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex md:items-center md:space-x-8">
@@ -38,12 +39,16 @@ export default function Header() {
 
         {/* Desktop Actions */}
         <div className="hidden md:flex md:items-center md:space-x-4">
-          <Button variant="ghost" data-testid="button-login">
-            Log In
-          </Button>
-          <Button data-testid="button-get-started">
-            Get Started
-          </Button>
+          <Link href="/login">
+            <Button variant="ghost" data-testid="button-login">
+              Log In
+            </Button>
+          </Link>
+          <Link href="/signup">
+            <Button data-testid="button-get-started">
+              Get Started
+            </Button>
+          </Link>
           <ThemeToggle />
         </div>
 
@@ -77,12 +82,16 @@ export default function Header() {
               </a>
             ))}
             <div className="pt-4 space-y-2">
-              <Button variant="ghost" className="w-full justify-start" data-testid="button-mobile-login">
-                Log In
-              </Button>
-              <Button className="w-full" data-testid="button-mobile-get-started">
-                Get Started
-              </Button>
+              <Link href="/login" className="w-full">
+                <Button variant="ghost" className="w-full justify-start" data-testid="button-mobile-login">
+                  Log In
+                </Button>
+              </Link>
+              <Link href="/signup" className="w-full">
+                <Button className="w-full" data-testid="button-mobile-get-started">
+                  Get Started
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

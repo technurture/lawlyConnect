@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle } from "lucide-react";
+import { Link } from "wouter";
 
 export default function CTASection() {
   const benefits = [
@@ -38,22 +39,26 @@ export default function CTASection() {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-            <Button 
-              size="lg"
-              className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 text-lg px-8 py-6"
-              data-testid="button-cta-get-started"
-            >
-              Get Started for Free
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-            <Button 
-              size="lg"
-              variant="outline"
-              className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/30 hover:bg-primary-foreground/20 text-lg px-8 py-6"
-              data-testid="button-cta-browse-lawyers"
-            >
-              Browse Lawyers
-            </Button>
+            <Link href="/signup">
+              <Button 
+                size="lg"
+                className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 text-lg px-8 py-6"
+                data-testid="button-cta-get-started"
+              >
+                Get Started for Free
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </Link>
+            <Link href="/signup">
+              <Button 
+                size="lg"
+                variant="outline"
+                className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/30 hover:bg-primary-foreground/20 text-lg px-8 py-6"
+                data-testid="button-cta-browse-lawyers"
+              >
+                Browse Lawyers
+              </Button>
+            </Link>
           </div>
 
           {/* Trust Indicators */}
